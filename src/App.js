@@ -115,7 +115,7 @@ function App() {
 
     return (
         <div style={styles.container}>
-            <h2>🧘 Túc Số Tracker</h2>
+            <h2>🧘 Túc Số Tracker - Maratika Việt Nam</h2>
 
             <label>ID:</label>
             <input value={id} onChange={e => setId(e.target.value)} />
@@ -175,6 +175,7 @@ function App() {
                     </ul>
                 </>
             )}
+            <h4>Xin tán thán và tuỳ hỷ công đức thực hành của các đạo hữu 🙏🏻</h4>
         </div>
     );
 }
