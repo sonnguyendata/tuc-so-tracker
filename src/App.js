@@ -3,7 +3,7 @@ import { format } from 'date-fns';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 
-const API_URL = 'https://script.google.com/macros/s/AKfycbzZzR-FexOTZErfY4Xh4TNQSTr8mTN5zIk7emtRBryEhEahoDc7G_pC5akoe-NnsAq-Xw/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbycdH1nb68Js336OgtuoyRB2-ktUW_6UiUe6FsS6TpbWsHOIicy5eo2M0BaUYDPT9bMXQ/exec';
 
 function App() {
     const [id, setId] = useState('');
@@ -22,7 +22,7 @@ function App() {
             .catch(err => console.error('Không lấy được danh sách pháp tu', err));
     }, []);
 
-    // Load profile theo ID nếu có
+    // Tự động điền lại profile từ localStorage
     useEffect(() => {
         const profile = JSON.parse(localStorage.getItem(id));
         if (profile) {
@@ -33,7 +33,7 @@ function App() {
 
     const saveProfile = () => {
         if (!id || !name || !dharmaName) {
-            alert('Vui lòng nhập đầy đủ ID, Tên, Pháp Danh.');
+            alert('Vui lòng nhập đầy đủ ID, Tên và Pháp Danh.');
             return;
         }
         localStorage.setItem(id, JSON.stringify({ name, dharmaName }));
@@ -53,43 +53,49 @@ function App() {
     const handleSubmit = async () => {
         const validEntries = entries.filter(e => e.practice && e.count > 0);
         if (!id || validEntries.length === 0) {
-            alert('Vui lòng nhập ID và ít nhất một pháp tu hợp lệ.');
+            alert('Vui lòng nhập ID và ít nhất một dòng hợp lệ.');
             return;
         }
 
         const dateStr = format(selectedDate, 'yyyy-MM-dd');
+        const submitResults = [];
 
-        const postPromises = validEntries.map((entry) =>
-            fetch(API_URL, {
-                method: 'POST',
-                body: JSON.stringify({
-                    id,
-                    name,
-                    dharmaName,
-                    practice: entry.practice,
-                    date: dateStr,
-                    count: entry.count,
-                }),
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
-        );
+        for (const entry of validEntries) {
+            const formData = new URLSearchParams();
+            formData.append('id', id);
+            formData.append('name', name);
+            formData.append('dharmaName', dharmaName);
+            formData.append('practice', entry.practice);
+            formData.append('date', dateStr);
+            formData.append('count', entry.count.toString());
 
-        try {
-            await Promise.all(postPromises);
-            const newTotals = {};
-            validEntries.forEach(entry => {
-                if (!newTotals[entry.practice]) newTotals[entry.practice] = 0;
-                newTotals[entry.practice] += entry.count;
-            });
-            setTotals(newTotals);
-            setEntries([{ practice: '', count: 0 }]);
-            alert('Đã ghi nhận thành công!');
-        } catch (err) {
-            console.error('Lỗi gửi dữ liệu:', err);
-            alert('Không thể gửi dữ liệu. Vui lòng thử lại.');
+            try {
+                const res = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: formData.toString()
+                });
+
+                const text = await res.text();
+                submitResults.push({ practice: entry.practice, count: entry.count, result: text });
+            } catch (err) {
+                console.error('Lỗi gửi dữ liệu:', err);
+                alert('Không thể gửi dữ liệu. Vui lòng thử lại.');
+                return;
+            }
         }
+
+        const totalMap = {};
+        submitResults.forEach(r => {
+            if (!totalMap[r.practice]) totalMap[r.practice] = 0;
+            totalMap[r.practice] += r.count;
+        });
+
+        setTotals(totalMap);
+        setEntries([{ practice: '', count: 0 }]);
+        alert('Đã ghi nhận thành công!');
     };
 
     return (
