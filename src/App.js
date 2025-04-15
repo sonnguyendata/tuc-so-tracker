@@ -124,7 +124,7 @@ function App() {
 
             <h3>📋 Nhập Túc Số Theo Pháp Tu</h3>
             {entries.map((entry, index) => (
-                <div key={index} style={{ marginBottom: 8 }}>
+                <div key={index} style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
                     <select
                         value={entry.practice}
                         onChange={(e) => handleChangeEntry(index, 'practice', e.target.value)}
@@ -134,7 +134,6 @@ function App() {
                             <option key={i} value={p}>{p}</option>
                         ))}
                     </select>
-                    &nbsp;
                     <input
                         type="number"
                         min={0}
@@ -142,6 +141,7 @@ function App() {
                         onChange={(e) => handleChangeEntry(index, 'count', e.target.value)}
                         style={{ width: 80 }}
                     />
+                    <button onClick={() => removeEntry(index)} style={{ color: 'red' }}>❌</button>
                 </div>
             ))}
             <button onClick={addEntry}>➕ Thêm dòng</button>
