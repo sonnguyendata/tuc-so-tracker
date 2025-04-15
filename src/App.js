@@ -170,7 +170,9 @@ function App() {
                     <h4>📊 Tổng Túc Số Tính Đến Hôm Nay:</h4>
                     <ul>
                         {Object.entries(totals).map(([practice, count]) => (
-                            <li key={practice}>{practice}: {count}</li>
+                            <li key={practice}>
+                                {practice}: {Number(count).toLocaleString('vi-VN')}
+                            </li>
                         ))}
                     </ul>
                 </>
