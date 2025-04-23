@@ -2,6 +2,17 @@
 import { format } from 'date-fns';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { Bar } from 'react-chartjs-2';
+import {
+    Chart as ChartJS,
+    BarElement,
+    CategoryScale,
+    LinearScale,
+    Tooltip,
+    Legend,
+} from 'chart.js';
+
+ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 const API_URL = 'https://script.google.com/macros/s/AKfycbznUDY4DECnSssJ6AimVPFLmI3pVrGwqhmfwJMuW62R_B1_aP_0BvdxPVpD7aduG9IV2w/exec';
 
@@ -13,6 +24,8 @@ function App() {
     const [practiceOptions, setPracticeOptions] = useState([]);
     const [entries, setEntries] = useState([{ practice: '', count: 0 }]);
     const [totals, setTotals] = useState({});
+    const [streak, setStreak] = useState(0);
+    const [dailyData, setDailyData] = useState({});
 
     // Lấy danh sách pháp tu
     useEffect(() => {
@@ -22,13 +35,13 @@ function App() {
             .catch(err => console.error('Không lấy được danh sách pháp tu', err));
     }, []);
 
-    // Tự động load profile từ localStorage
+    // Tự động load thông tin từ localStorage
     useEffect(() => {
         const profile = JSON.parse(localStorage.getItem(id));
         if (profile) {
             setName(profile.name);
             setDharmaName(profile.dharmaName);
-            fetchTotalSummary(id); // lấy tổng túc số khi nhập ID
+            fetchSummary(id); // lấy tổng túc số, daily và streak
         }
     }, [id]);
 
@@ -69,7 +82,6 @@ function App() {
         }
 
         const dateStr = format(selectedDate, 'yyyy-MM-dd');
-        const submitResults = [];
 
         for (const entry of validEntries) {
             const formData = new URLSearchParams();
@@ -81,16 +93,13 @@ function App() {
             formData.append('count', entry.count.toString());
 
             try {
-                const res = await fetch(API_URL, {
+                await fetch(API_URL, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
                     body: formData.toString()
                 });
-
-                const text = await res.text();
-                submitResults.push({ practice: entry.practice, count: entry.count, result: text });
             } catch (err) {
                 console.error('Lỗi gửi dữ liệu:', err);
                 alert('Không thể gửi dữ liệu. Vui lòng thử lại.');
@@ -99,43 +108,60 @@ function App() {
         }
 
         alert('Đã ghi nhận thành công!');
-        fetchTotalSummary(id); // cập nhật lại tổng sau khi gửi
+        fetchSummary(id);
         setEntries([{ practice: '', count: 0 }]);
     };
 
-    const fetchTotalSummary = async (userId) => {
+    const fetchSummary = async (userId) => {
         try {
             const response = await fetch(`${API_URL}?action=summary&id=${encodeURIComponent(userId)}`);
-            const data = await response.json();
-            setTotals(data);
+            const { summary, daily, streak } = await response.json();
+            setTotals(summary);
+            setDailyData(daily);
+            setStreak(streak);
         } catch (err) {
-            console.error('Không thể lấy tổng túc số:', err);
+            console.error('Không thể lấy tổng dữ liệu:', err);
+        }
+    };
+
+    // Tạo dữ liệu biểu đồ
+    const chartData = {
+        labels: Object.keys(dailyData),
+        datasets: [
+            {
+                label: 'Túc Số',
+                data: Object.values(dailyData),
+                backgroundColor: '#4B9CD3'
+            }
+        ]
+    };
+
+    const chartOptions = {
+        responsive: true,
+        plugins: {
+            legend: { display: false }
         }
     };
 
     return (
         <div style={styles.container}>
-            <h2>🧘 Túc Số Tracker - Maratika Việt Nam</h2>
+            <h2>🧘 Túc Số Tracker</h2>
 
             <label>ID:</label>
-            <input value={id} onChange={e => setId(e.target.value)} />
-            <br />
+            <input value={id} onChange={e => setId(e.target.value)} /><br />
 
             <label>Tên:</label>
-            <input value={name} onChange={e => setName(e.target.value)} />
-            <br />
+            <input value={name} onChange={e => setName(e.target.value)} /><br />
 
             <label>Pháp Danh:</label>
-            <input value={dharmaName} onChange={e => setDharmaName(e.target.value)} />
-            <br />
+            <input value={dharmaName} onChange={e => setDharmaName(e.target.value)} /><br />
 
             <button onClick={saveProfile}>💾 Lưu Thông Tin</button>
 
             <hr />
 
             <label>Chọn Ngày:</label>
-            <DatePicker selected={selectedDate} onChange={(date) => setSelectedDate(date)} dateFormat="yyyy-MM-dd" />
-            <br />
+            <DatePicker selected={selectedDate} onChange={(date) => setSelectedDate(date)} dateFormat="yyyy-MM-dd" /><br />
 
             <h3>📋 Nhập Túc Số Theo Pháp Tu</h3>
             {entries.map((entry, index) => (
@@ -162,22 +188,26 @@ function App() {
             <button onClick={addEntry}>➕ Thêm dòng</button>
 
             <hr />
-
             <button onClick={handleSubmit}>✅ Gửi Dữ Liệu</button>
 
             {Object.keys(totals).length > 0 && (
                 <>
-                    <h4>📊 Tổng Túc Số Tính Đến Hôm Nay:</h4>
+                    <h4>📊 Tổng Túc Số Tính Đến Hôm Nay – Pháp Danh: {dharmaName}</h4>
+                    {streak > 0 && (
+                        <p>🎉 Bạn đã thực hành <strong>{streak}</strong> ngày liên tục!</p>
+                    )}
                     <ul>
                         {Object.entries(totals).map(([practice, count]) => (
-                            <li key={practice}>
-                                {practice}: {Number(count).toLocaleString('vi-VN')}
-                            </li>
+                            <li key={practice}>{practice}: {Number(count).toLocaleString('vi-VN')}</li>
                         ))}
                     </ul>
+
+                    <div style={{ marginTop: 20 }}>
+                        <h5>📈 Biểu đồ Túc Số Theo Ngày</h5>
+                        <Bar data={chartData} options={chartOptions} />
+                    </div>
                 </>
             )}
-            <h4>Xin tán thán và tuỳ hỷ công đức thực hành của các đạo hữu 🙏🏻</h4>
         </div>
     );
 }
