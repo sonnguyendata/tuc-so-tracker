@@ -27,6 +27,8 @@ function App() {
   const [streak, setStreak] = useState(0);
   const [dailyData, setDailyData] = useState({});
   const [loading, setLoading] = useState(false);
+  const [isInitialEntry, setIsInitialEntry] = useState(false);
+
 
   useEffect(() => {
     fetch(API_URL)
@@ -97,6 +99,8 @@ function App() {
       formData.append('practice', entry.practice);
       formData.append('date', dateStr);
       formData.append('count', entry.count.toString());
+      formData.append('note', isInitialEntry ? 'tổng' : '');
+
 
       try {
           await fetch('/api/proxy', {
@@ -124,7 +128,8 @@ function App() {
 
     alert('Đã ghi nhận thành công!');
     await fetchSummary(id);
-    setEntries([{ practice: '', count: 0 }]);
+      setEntries([{ practice: '', count: 0 }]);
+      setIsInitialEntry(false);
     setLoading(false);
   };
 
@@ -202,6 +207,17 @@ function App() {
                 </div>
             ))}
             <button onClick={addEntry}>➕ Thêm dòng</button>
+            <div style={{ marginTop: 10 }}>
+                <label>
+                    <input
+                        type="checkbox"
+                        checked={isInitialEntry}
+                        onChange={(e) => setIsInitialEntry(e.target.checked)}
+                    />
+                    Đây là số tích lũy từ trước (chỉ nhập 1 lần)
+                </label>
+            </div>
+
 
             <hr />
             <button onClick={handleSubmit}>✅ Gửi Dữ Liệu</button>
