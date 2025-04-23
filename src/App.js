@@ -99,14 +99,21 @@ function App() {
       formData.append('count', entry.count.toString());
 
       try {
-        await fetch(API_URL, {
-           method: 'POST',
-           mode: 'no-cors',
-          headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-          },
-          body: formData.toString()
-        });
+          await fetch('/api/proxy', {
+              method: 'POST',
+              headers: {
+                  'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                  id,
+                  name,
+                  dharmaName,
+                  practice: entry.practice,
+                  date: dateStr,
+                  count: entry.count
+              })
+          });
+
       } catch (err) {
         console.error('Lỗi gửi dữ liệu:', err);
         alert('Không thể gửi dữ liệu. Vui lòng thử lại.');
