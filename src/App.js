@@ -226,7 +226,7 @@ function App() {
 
             {Object.keys(totals).length > 0 && (
                 <>
-                    <h4>📊 Tổng Túc Số Tính Đến Hôm Nay – Pháp Danh: {dharmaName}</h4>
+                    <h4>📊 Tổng Túc Số Tính Đến Hôm Nay – {dharmaName}</h4>
                     {streak > 0 && (
                         <p>🎉 Bạn đã thực hành <strong>{streak}</strong> ngày liên tục!</p>
                     )}
