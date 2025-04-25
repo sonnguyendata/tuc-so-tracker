@@ -1,32 +1,46 @@
-﻿export const config = {
-  api: {
-    bodyParser: true, // Cho phép parse JSON từ client
-  }
+﻿// api/proxy.js
+export const config = {
+    api: {
+        bodyParser: true,
+    },
 };
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method Not Allowed' });
-  }
+const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwzWNuKLVrIAtzoYSKlOOz1HL1BrY069qAVutulNCWuUbJmqKsZKmstysHx2_h_fweSXA/exec';
 
-  try {
-    const params = new URLSearchParams();
-    for (const key in req.body) {
-      params.append(key, req.body[key]);
+export default async function handler(req, res) {
+    // 🌐 CORS
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
     }
 
-      const response = await fetch('https://script.google.com/macros/s/AKfycbwzWNuKLVrIAtzoYSKlOOz1HL1BrY069qAVutulNCWuUbJmqKsZKmstysHx2_h_fweSXA/exec', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: params.toString()
-    });
+    // — GET: forward query to Google Script
+    if (req.method === 'GET') {
+        const qs = new URLSearchParams(req.query).toString();
+        const scriptRes = await fetch(`${SCRIPT_URL}?${qs}`);
+        const text = await scriptRes.text();
+        res.status(200).send(text);
+        return;
+    }
 
-    const result = await response.text();
-    res.status(200).json({ message: result });
-  } catch (error) {
-    console.error('Lỗi proxy gửi lên Google Script:', error);
-    res.status(500).json({ error: 'Gửi thất bại từ proxy' });
-  }
+    // — POST: forward body to Google Script
+    if (req.method === 'POST') {
+        // build x-www-form-urlencoded body
+        const params = new URLSearchParams();
+        const body = req.body;
+        for (const k in body) params.append(k, body[k]);
+        const scriptRes = await fetch(SCRIPT_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: params.toString(),
+        });
+        const text = await scriptRes.text();
+        res.status(200).send(text);
+        return;
+    }
+
+    res.status(405).json({ error: 'Method Not Allowed' });
 }
