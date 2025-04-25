@@ -14,7 +14,10 @@ import {
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
+const PROXY = '/api/proxy';
+
 function App() {
+    // ─── State ─────────────────────────────────────────────
     const [id, setId] = useState('');
     const [name, setName] = useState('');
     const [dharmaName, setDharmaName] = useState('');
@@ -29,23 +32,25 @@ function App() {
     const [dailyData, setDailyData] = useState({});
     const [streak, setStreak] = useState(0);
 
-    // load pháp tu
+    // ─── Load Pháp Tu ───────────────────────────────────────
     useEffect(() => {
-        fetch('/api/proxy')
+        fetch(PROXY)
             .then(r => r.json())
             .then(setPracticeOptions)
             .catch(console.error);
     }, []);
 
-    // load profile + history
+    // ─── Load Profile + Summary khi ID thay đổi ────────────
     useEffect(() => {
         if (!id) {
+            // reset mọi thứ khi xóa ID
             setName(''); setDharmaName('');
             setTotals({}); setTodaySummary({}); setDailyData({}); setStreak(0);
             return;
         }
-        // profile
-        fetch(`/api/proxy?action=profile&id=${encodeURIComponent(id)}`)
+
+        // 1) profile
+        fetch(`${PROXY}?action=profile&id=${encodeURIComponent(id)}`)
             .then(r => r.json())
             .then(p => {
                 if (p) {
@@ -69,8 +74,9 @@ function App() {
                     setDharmaName(obj.dharmaName);
                 }
             });
-        // summary
-        fetch(`/api/proxy?action=summary&id=${encodeURIComponent(id)}`)
+
+        // 2) summary
+        fetch(`${PROXY}?action=summary&id=${encodeURIComponent(id)}`)
             .then(r => r.json())
             .then(({ summary = {}, todaySummary = {}, daily = {}, streak = 0 }) => {
                 setTotals(summary);
@@ -81,52 +87,65 @@ function App() {
             .catch(console.error);
     }, [id]);
 
+    // ─── Save Profile ───────────────────────────────────────
     const saveProfile = async () => {
         if (!id || !name || !dharmaName) {
-            alert('Nhập đủ ID, Tên, Pháp Danh');
-            return;
+            return alert('Nhập đủ ID, Tên và Pháp Danh');
         }
-        const res = await fetch('/api/proxy', {
+        const res = await fetch(PROXY, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: 'saveProfile',
-                id, name, dharmaName
-            })
+            body: JSON.stringify({ action: 'saveProfile', id, name, dharmaName })
         });
         if ((await res.text()) === 'ProfileSaved') {
-            alert('Đã lưu profile');
+            alert('Đã lưu thông tin cá nhân.');
             localStorage.setItem(id, JSON.stringify({ name, dharmaName }));
         }
     };
 
+    // ─── Entries handlers ─────────────────────────────────
     const handleChangeEntry = (i, f, v) => {
         const u = [...entries]; u[i][f] = v; setEntries(u);
     };
     const addEntry = () => setEntries([...entries, { practice: '', count: '' }]);
     const removeEntry = i => {
-        if (entries.length === 1) { alert('Phải có ít nhất 1 dòng.'); return; }
+        if (entries.length === 1) {
+            alert('Phải có ít nhất 1 dòng.');
+            return;
+        }
         const u = [...entries]; u.splice(i, 1); setEntries(u);
     };
-    const inc = i => { const u = [...entries]; const v = parseInt(u[i].count, 10) || 0; u[i].count = (v + 1).toString(); setEntries(u); };
-    const dec = i => { const u = [...entries]; const v = parseInt(u[i].count, 10) || 0; u[i].count = (v > 0 ? v - 1 : 0).toString(); setEntries(u); };
+    const inc = i => {
+        const u = [...entries];
+        const v = parseInt(u[i].count, 10) || 0;
+        u[i].count = String(v + 1);
+        setEntries(u);
+    };
+    const dec = i => {
+        const u = [...entries];
+        const v = parseInt(u[i].count, 10) || 0;
+        u[i].count = String(v > 0 ? v - 1 : 0);
+        setEntries(u);
+    };
 
+    // ─── Submit entries ───────────────────────────────────
     const handleSubmit = async () => {
-        if (!id) { alert('Nhập ID trước'); return; }
+        if (!id) return alert('Nhập ID trước');
         const valid = entries
             .map(e => ({ ...e, countNum: parseInt(e.count, 10) || 0 }))
             .filter(e => e.practice && e.countNum > 0);
-        if (!valid.length) { alert('Chọn ít nhất 1 dòng hợp lệ.'); return; }
+        if (!valid.length) return alert('Chọn ít nhất 1 dòng hợp lệ.');
+
         setLoading(true);
-        const dstr = format(selectedDate, 'yyyy-MM-dd');
+        const dateStr = format(selectedDate, 'yyyy-MM-dd');
         for (const e of valid) {
-            await fetch('/api/proxy', {
+            await fetch(PROXY, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     id, name, dharmaName,
                     practice: e.practice,
-                    date: dstr,
+                    date: dateStr,
                     count: e.countNum.toString(),
                     note: isInitialEntry ? 'tổng' : ''
                 })
@@ -136,33 +155,29 @@ function App() {
         setEntries([{ practice: '', count: '' }]);
         setIsInitialEntry(false);
         setLoading(false);
-        // reload summary
-        fetch(`/api/proxy?action=summary&id=${encodeURIComponent(id)}`)
-            .then(r => r.json())
-            .then(({ summary = {}, todaySummary = {}, daily = {}, streak = 0 }) => {
-                setTotals(summary);
-                setTodaySummary(todaySummary);
-                setDailyData(daily);
-                setStreak(streak);
-            })
-            .catch(console.error);
+
+        // reload summary immediately
+        const resp = await fetch(`${PROXY}?action=summary&id=${encodeURIComponent(id)}`);
+        const { summary = {}, todaySummary = {}, daily = {}, streak = 0 } = await resp.json();
+        setTotals(summary);
+        setTodaySummary(todaySummary);
+        setDailyData(daily);
+        setStreak(streak);
     };
 
-    // chart data
-    const sortedDates = Object.keys(dailyData).sort();
+    // ─── Chart setup ─────────────────────────────────────
+    const dates = Object.keys(dailyData).sort();
     const chartData = {
-        labels: sortedDates,
-        datasets: [{
-            label: 'Túc Số',
-            data: sortedDates.map(d => dailyData[d]),
-            backgroundColor: '#4B9CD3'
-        }]
+        labels: dates,
+        datasets: [{ label: 'Túc Số', data: dates.map(d => dailyData[d]), backgroundColor: '#4B9CD3' }]
     };
     const chartOptions = { responsive: true, plugins: { legend: { display: false } } };
 
+    // ─── Render ──────────────────────────────────────────
     return (
         <div style={{ maxWidth: 600, margin: 'auto', padding: 20, fontFamily: 'sans-serif' }}>
             <h2>🧘 Túc Số Tracker</h2>
+
             <label>ID:</label>
             <input value={id} onChange={e => setId(e.target.value)} /><br />
             <label>Tên:</label>
@@ -179,7 +194,7 @@ function App() {
             {entries.map((e, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
                     <select value={e.practice} onChange={ev => handleChangeEntry(i, 'practice', ev.target.value)}>
-                        <option value="">--Chọn Pháp Tu--</option>
+                        <option value="">-- Chọn Pháp Tu --</option>
                         {practiceOptions.map((p, j) => <option key={j} value={p}>{p}</option>)}
                     </select>
                     <button onClick={() => dec(i)} style={{ width: 30 }}>–</button>
@@ -197,11 +212,7 @@ function App() {
             <button onClick={addEntry}>➕ Thêm dòng</button>
             <div style={{ marginTop: 10 }}>
                 <label>
-                    <input
-                        type="checkbox"
-                        checked={isInitialEntry}
-                        onChange={e => setIsInitialEntry(e.target.checked)}
-                    />
+                    <input type="checkbox" checked={isInitialEntry} onChange={e => setIsInitialEntry(e.target.checked)} />
                     Đây là số tích lũy từ trước (chỉ 1 lần)
                 </label>
             </div>
@@ -209,14 +220,15 @@ function App() {
             <button onClick={handleSubmit} disabled={loading}>✅ Gửi Dữ Liệu</button>
             {loading && <p>⏳ Đang xử lý...</p>}
 
+            {/* Summary luôn hiển thị nếu ID tồn tại */}
             {id && (
                 <div style={{ marginTop: 20 }}>
                     <h4>📊 Túc Số Hôm Nay / Tổng Tích Lũy – {dharmaName}</h4>
                     {streak > 0 && <p>🎉 Bạn đã thực hành <strong>{streak}</strong> ngày liên tục!</p>}
                     <ul>
-                        {Object.entries(totals).map(([p, c]) => (
-                            <li key={p}>
-                                {p}: <strong>{(todaySummary[p] || 0).toLocaleString('vi-VN')}</strong> / {c.toLocaleString('vi-VN')}
+                        {Object.entries(totals).map(([practice, cum]) => (
+                            <li key={practice}>
+                                {practice}: <strong>{(todaySummary[practice] || 0).toLocaleString('vi-VN')}</strong> / {cum.toLocaleString('vi-VN')}
                             </li>
                         ))}
                     </ul>
