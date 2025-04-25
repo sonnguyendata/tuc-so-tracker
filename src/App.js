@@ -17,7 +17,7 @@ ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 const API = 'https://script.google.com/macros/s/AKfycbwzWNuKLVrIAtzoYSKlOOz1HL1BrY069qAVutulNCWuUbJmqKsZKmstysHx2_h_fweSXA/exec';
 
 function App() {
-    // ─── STATES ──────────────────────────────────────────
+    // ─── States ───────────────────────────────────────
     const [id, setId] = useState('');
     const [name, setName] = useState('');
     const [dharmaName, setDharmaName] = useState('');
@@ -26,11 +26,13 @@ function App() {
     const [entries, setEntries] = useState([{ practice: '', count: '' }]);
     const [isInitialEntry, setIsInitialEntry] = useState(false);
     const [loading, setLoading] = useState(false);
+
     const [totals, setTotals] = useState({});
+    const [todaySummary, setTodaySummary] = useState({});
     const [dailyData, setDailyData] = useState({});
     const [streak, setStreak] = useState(0);
 
-    // ─── LOAD PHÁP TU ─────────────────────────────────────
+    // ─── Load Pháp Tu ───────────────────────────────────
     useEffect(() => {
         fetch(API)
             .then(r => r.json())
@@ -38,20 +40,19 @@ function App() {
             .catch(console.error);
     }, []);
 
-    // ─── LOAD PROFILE + HISTORY ───────────────────────────
+    // ─── Load Profile + History ─────────────────────────
     useEffect(() => {
         if (!id) return;
-        // 1️⃣ fetch profile từ server
+
+        // fetch profile
         fetch(`${API}?action=profile&id=${encodeURIComponent(id)}`)
             .then(r => r.json())
             .then(p => {
                 if (p) {
                     setName(p.name);
                     setDharmaName(p.dharmaName);
-                    // lưu local để dùng tạm khi server chưa có
                     localStorage.setItem(id, JSON.stringify(p));
                 } else {
-                    // nếu server chưa có, fallback localStorage
                     const local = JSON.parse(localStorage.getItem(id));
                     if (local) {
                         setName(local.name);
@@ -63,11 +64,12 @@ function App() {
                 }
             })
             .catch(console.error);
-        // 2️⃣ fetch history
+
+        // fetch summary/daily/today/streak
         fetchSummary(id);
     }, [id]);
 
-    // ─── SAVE PROFILE ─────────────────────────────────────
+    // ─── Save Profile ───────────────────────────────────
     const saveProfile = async () => {
         if (!id || !name || !dharmaName) {
             alert('Nhập đủ ID, Tên và Pháp Danh');
@@ -88,7 +90,7 @@ function App() {
         }
     };
 
-    // ─── HANDLE ENTRIES ───────────────────────────────────
+    // ─── Handle Entries ─────────────────────────────────
     const handleChangeEntry = (i, field, v) => {
         const u = [...entries];
         u[i][field] = v;
@@ -117,7 +119,7 @@ function App() {
         setEntries(u);
     };
 
-    // ─── SUBMIT ENTRIES ───────────────────────────────────
+    // ─── Submit Entries ────────────────────────────────
     const handleSubmit = async () => {
         if (!id) {
             alert('Nhập ID trước');
@@ -152,12 +154,18 @@ function App() {
         await fetchSummary(id);
     };
 
-    // ─── FETCH SUMMARY / DAILY / STREAK ──────────────────
-    const fetchSummary = async (userId) => {
+    // ─── Fetch Summary / Today / Daily / Streak ─────────
+    const fetchSummary = async userId => {
         try {
             const res = await fetch(`${API}?action=summary&id=${encodeURIComponent(userId)}`);
-            const { summary = {}, daily = {}, streak = 0 } = await res.json();
+            const {
+                summary = {},
+                todaySummary = {},
+                daily = {},
+                streak = 0
+            } = await res.json();
             setTotals(summary);
+            setTodaySummary(todaySummary);
             setDailyData(daily);
             setStreak(streak);
         } catch (err) {
@@ -165,22 +173,24 @@ function App() {
         }
     };
 
-    // ─── TÍNH TOÁN NGÀY HÔM NAY và TỔNG TÍCH LŨY ─────────────────
-    const todayKey = format(new Date(), 'yyyy-MM-dd');
-    const todayTotal = Object.entries(dailyData)
-        .filter(([date]) => date === todayKey)
-        .reduce((acc, [, cnt]) => acc + cnt, 0);
-    const cumulativeTotal = Object.values(totals).reduce((a, b) => a + b, 0);
-
-    // ─── CHART DATA ───────────────────────────────────────
+    // ─── Chart Data ────────────────────────────────────
     const sortedDates = Object.keys(dailyData).sort();
     const chartData = {
         labels: sortedDates,
-        datasets: [{ label: 'Túc Số', data: sortedDates.map(d => dailyData[d]), backgroundColor: '#4B9CD3' }]
+        datasets: [
+            {
+                label: 'Túc Số',
+                data: sortedDates.map(d => dailyData[d]),
+                backgroundColor: '#4B9CD3'
+            }
+        ]
     };
-    const chartOptions = { responsive: true, plugins: { legend: { display: false } } };
+    const chartOptions = {
+        responsive: true,
+        plugins: { legend: { display: false } }
+    };
 
-    // ─── RENDER ───────────────────────────────────────────
+    // ─── Render ────────────────────────────────────────
     return (
         <div style={styles.container}>
             <h2>🧘 Túc Số Tracker</h2>
@@ -199,14 +209,23 @@ function App() {
             <hr />
 
             <label>Chọn Ngày:</label>
-            <DatePicker selected={selectedDate} onChange={d => setSelectedDate(d)} dateFormat="yyyy-MM-dd" /><br />
+            <DatePicker
+                selected={selectedDate}
+                onChange={d => setSelectedDate(d)}
+                dateFormat="yyyy-MM-dd"
+            /><br />
 
             <h3>📋 Nhập Túc Số Theo Pháp Tu</h3>
             {entries.map((entry, i) => (
                 <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                    <select value={entry.practice} onChange={e => handleChangeEntry(i, 'practice', e.target.value)}>
+                    <select
+                        value={entry.practice}
+                        onChange={e => handleChangeEntry(i, 'practice', e.target.value)}
+                    >
                         <option value="">-- Chọn Pháp Tu --</option>
-                        {practiceOptions.map((p, j) => <option key={j} value={p}>{p}</option>)}
+                        {practiceOptions.map((p, j) =>
+                            <option key={j} value={p}>{p}</option>
+                        )}
                     </select>
 
                     <button onClick={() => dec(i)} style={{ width: 30 }}>–</button>
@@ -223,9 +242,14 @@ function App() {
                 </div>
             ))}
             <button onClick={addEntry}>➕ Thêm dòng</button>
+
             <div style={{ marginTop: 10 }}>
                 <label>
-                    <input type="checkbox" checked={isInitialEntry} onChange={e => setIsInitialEntry(e.target.checked)} />
+                    <input
+                        type="checkbox"
+                        checked={isInitialEntry}
+                        onChange={e => setIsInitialEntry(e.target.checked)}
+                    />
                     Đây là số tích lũy từ trước (chỉ 1 lần)
                 </label>
             </div>
@@ -235,14 +259,28 @@ function App() {
             <button onClick={handleSubmit} disabled={loading}>✅ Gửi Dữ Liệu</button>
             {loading && <p>⏳ Đang xử lý...</p>}
 
-            {/* ─── Tổng Hôm Nay / Tổng Tích Lũy ─────────────────── */}
-            {cumulativeTotal > 0 && (
+            {/* Hiển thị “Hôm nay / Tổng tích lũy” theo từng pháp tu */}
+            {Object.keys(totals).length > 0 && (
                 <div style={{ marginTop: 20 }}>
                     <h4>📊 Túc Số Hôm Nay / Tổng Tích Lũy – {dharmaName}</h4>
-                    <p><strong>{todayTotal.toLocaleString('vi-VN')}</strong> / {cumulativeTotal.toLocaleString('vi-VN')}</p>
+                    {streak > 0 && (
+                        <p>🎉 Bạn đã thực hành <strong>{streak}</strong> ngày liên tục!</p>
+                    )}
+                    <ul>
+                        {Object.entries(totals).map(([practice, cumulative]) => (
+                            <li key={practice}>
+                                {practice}:&nbsp;
+                                <strong>{(todaySummary[practice] || 0).toLocaleString('vi-VN')}</strong>
+                                &nbsp;/&nbsp;
+                                {cumulative.toLocaleString('vi-VN')}
+                            </li>
+                        ))}
+                    </ul>
 
-                    <h5>📈 Biểu đồ Túc Số Theo Ngày</h5>
-                    <Bar data={chartData} options={chartOptions} />
+                    <div style={{ marginTop: 20 }}>
+                        <h5>📈 Biểu đồ Túc Số Theo Ngày</h5>
+                        <Bar data={chartData} options={chartOptions} />
+                    </div>
                 </div>
             )}
         </div>
@@ -250,7 +288,12 @@ function App() {
 }
 
 const styles = {
-    container: { maxWidth: 600, margin: 'auto', padding: 20, fontFamily: 'sans-serif' }
+    container: {
+        maxWidth: 600,
+        margin: '0 auto',
+        padding: 20,
+        fontFamily: 'sans-serif',
+    },
 };
 
 export default App;
