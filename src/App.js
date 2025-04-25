@@ -32,7 +32,7 @@ function App() {
     const [dailyData, setDailyData] = useState({});
     const [streak, setStreak] = useState(0);
 
-    // ─── Load Pháp Tu ───────────────────────────────────────
+    // ─── Load Pháp Tu 1 lần khi mount ───────────────────────
     useEffect(() => {
         fetch(PROXY)
             .then(r => r.json())
@@ -40,52 +40,55 @@ function App() {
             .catch(console.error);
     }, []);
 
-    // ─── Load Profile + Summary khi ID thay đổi ────────────
-    useEffect(() => {
-        if (!id) {
-            // reset mọi thứ khi xóa ID
-            setName(''); setDharmaName('');
-            setTotals({}); setTodaySummary({}); setDailyData({}); setStreak(0);
-            return;
-        }
+    // ─── Hàm load profile + history khi bấm nút ────────────
+    const loadData = async () => {
+        if (!id) return alert('Vui lòng nhập ID trước.');
 
-        // 1) profile
-        fetch(`${PROXY}?action=profile&id=${encodeURIComponent(id)}`)
-            .then(r => r.json())
-            .then(p => {
-                if (p) {
-                    setName(p.name);
-                    setDharmaName(p.dharmaName);
-                    localStorage.setItem(id, JSON.stringify(p));
-                } else {
-                    const saved = localStorage.getItem(id);
-                    if (saved) {
-                        const obj = JSON.parse(saved);
-                        setName(obj.name);
-                        setDharmaName(obj.dharmaName);
-                    }
-                }
-            })
-            .catch(() => {
+        // 1) Profile
+        try {
+            const resP = await fetch(`${PROXY}?action=profile&id=${encodeURIComponent(id)}`);
+            const p = await resP.json();
+            if (p) {
+                setName(p.name);
+                setDharmaName(p.dharmaName);
+                localStorage.setItem(id, JSON.stringify(p));
+            } else {
                 const saved = localStorage.getItem(id);
                 if (saved) {
                     const obj = JSON.parse(saved);
                     setName(obj.name);
                     setDharmaName(obj.dharmaName);
+                } else {
+                    setName('');
+                    setDharmaName('');
                 }
-            });
+            }
+        } catch (e) {
+            console.error(e);
+            const saved = localStorage.getItem(id);
+            if (saved) {
+                const obj = JSON.parse(saved);
+                setName(obj.name);
+                setDharmaName(obj.dharmaName);
+            }
+        }
 
-        // 2) summary
-        fetch(`${PROXY}?action=summary&id=${encodeURIComponent(id)}`)
-            .then(r => r.json())
-            .then(({ summary = {}, todaySummary = {}, daily = {}, streak = 0 }) => {
-                setTotals(summary);
-                setTodaySummary(todaySummary);
-                setDailyData(daily);
-                setStreak(streak);
-            })
-            .catch(console.error);
-    }, [id]);
+        // 2) Summary
+        try {
+            const resS = await fetch(`${PROXY}?action=summary&id=${encodeURIComponent(id)}`);
+            const { summary = {}, todaySummary = {}, daily = {}, streak = 0 } = await resS.json();
+            setTotals(summary);
+            setTodaySummary(todaySummary);
+            setDailyData(daily);
+            setStreak(streak);
+        } catch (e) {
+            console.error(e);
+            setTotals({});
+            setTodaySummary({});
+            setDailyData({});
+            setStreak(0);
+        }
+    };
 
     // ─── Save Profile ───────────────────────────────────────
     const saveProfile = async () => {
@@ -103,16 +106,13 @@ function App() {
         }
     };
 
-    // ─── Entries handlers ─────────────────────────────────
+    // ─── Entry handlers ────────────────────────────────────
     const handleChangeEntry = (i, f, v) => {
         const u = [...entries]; u[i][f] = v; setEntries(u);
     };
     const addEntry = () => setEntries([...entries, { practice: '', count: '' }]);
     const removeEntry = i => {
-        if (entries.length === 1) {
-            alert('Phải có ít nhất 1 dòng.');
-            return;
-        }
+        if (entries.length === 1) { alert('Phải có ít nhất 1 dòng.'); return; }
         const u = [...entries]; u.splice(i, 1); setEntries(u);
     };
     const inc = i => {
@@ -128,16 +128,15 @@ function App() {
         setEntries(u);
     };
 
-    // ─── Submit entries ───────────────────────────────────
+    // ─── Submit Entries ────────────────────────────────────
     const handleSubmit = async () => {
         if (!id) return alert('Nhập ID trước');
         const valid = entries
             .map(e => ({ ...e, countNum: parseInt(e.count, 10) || 0 }))
             .filter(e => e.practice && e.countNum > 0);
         if (!valid.length) return alert('Chọn ít nhất 1 dòng hợp lệ.');
-
         setLoading(true);
-        const dateStr = format(selectedDate, 'yyyy-MM-dd');
+        const dstr = format(selectedDate, 'yyyy-MM-dd');
         for (const e of valid) {
             await fetch(PROXY, {
                 method: 'POST',
@@ -145,7 +144,7 @@ function App() {
                 body: JSON.stringify({
                     id, name, dharmaName,
                     practice: e.practice,
-                    date: dateStr,
+                    date: dstr,
                     count: e.countNum.toString(),
                     note: isInitialEntry ? 'tổng' : ''
                 })
@@ -155,40 +154,45 @@ function App() {
         setEntries([{ practice: '', count: '' }]);
         setIsInitialEntry(false);
         setLoading(false);
-
-        // reload summary immediately
-        const resp = await fetch(`${PROXY}?action=summary&id=${encodeURIComponent(id)}`);
-        const { summary = {}, todaySummary = {}, daily = {}, streak = 0 } = await resp.json();
-        setTotals(summary);
-        setTodaySummary(todaySummary);
-        setDailyData(daily);
-        setStreak(streak);
+        await loadData();
     };
 
-    // ─── Chart setup ─────────────────────────────────────
+    // ─── Chart setup ───────────────────────────────────────
     const dates = Object.keys(dailyData).sort();
     const chartData = {
         labels: dates,
         datasets: [{ label: 'Túc Số', data: dates.map(d => dailyData[d]), backgroundColor: '#4B9CD3' }]
     };
-    const chartOptions = { responsive: true, plugins: { legend: { display: false } } };
+    const chartOpts = { responsive: true, plugins: { legend: { display: false } } };
 
-    // ─── Render ──────────────────────────────────────────
+    // ─── Render ────────────────────────────────────────────
     return (
         <div style={{ maxWidth: 600, margin: 'auto', padding: 20, fontFamily: 'sans-serif' }}>
             <h2>🧘 Túc Số Tracker</h2>
 
             <label>ID:</label>
-            <input value={id} onChange={e => setId(e.target.value)} /><br />
+            <input
+                value={id}
+                onChange={e => setId(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && loadData()}
+            />
+            <button onClick={loadData} style={{ marginLeft: 8 }}>🔍 Tải Dữ Liệu</button>
+            <br />
+
             <label>Tên:</label>
             <input value={name} onChange={e => setName(e.target.value)} /><br />
             <label>Pháp Danh:</label>
             <input value={dharmaName} onChange={e => setDharmaName(e.target.value)} /><br />
             <button onClick={saveProfile}>💾 Lưu Thông Tin</button>
+
             <hr />
 
             <label>Chọn Ngày:</label>
-            <DatePicker selected={selectedDate} onChange={d => setSelectedDate(d)} dateFormat="yyyy-MM-dd" /><br />
+            <DatePicker
+                selected={selectedDate}
+                onChange={d => setSelectedDate(d)}
+                dateFormat="yyyy-MM-dd"
+            /><br />
 
             <h3>📋 Nhập Túc Số Theo Pháp Tu</h3>
             {entries.map((e, i) => (
@@ -210,17 +214,23 @@ function App() {
                 </div>
             ))}
             <button onClick={addEntry}>➕ Thêm dòng</button>
+
             <div style={{ marginTop: 10 }}>
                 <label>
-                    <input type="checkbox" checked={isInitialEntry} onChange={e => setIsInitialEntry(e.target.checked)} />
+                    <input
+                        type="checkbox"
+                        checked={isInitialEntry}
+                        onChange={e => setIsInitialEntry(e.target.checked)}
+                    />
                     Đây là số tích lũy từ trước (chỉ 1 lần)
                 </label>
             </div>
+
             <hr />
+
             <button onClick={handleSubmit} disabled={loading}>✅ Gửi Dữ Liệu</button>
             {loading && <p>⏳ Đang xử lý...</p>}
 
-            {/* Summary luôn hiển thị nếu ID tồn tại */}
             {id && (
                 <div style={{ marginTop: 20 }}>
                     <h4>📊 Túc Số Hôm Nay / Tổng Tích Lũy – {dharmaName}</h4>
@@ -228,13 +238,16 @@ function App() {
                     <ul>
                         {Object.entries(totals).map(([practice, cum]) => (
                             <li key={practice}>
-                                {practice}: <strong>{(todaySummary[practice] || 0).toLocaleString('vi-VN')}</strong> / {cum.toLocaleString('vi-VN')}
+                                {practice}:&nbsp;
+                                <strong>{(todaySummary[practice] || 0).toLocaleString('vi-VN')}</strong>
+                                &nbsp;/&nbsp;
+                                {cum.toLocaleString('vi-VN')}
                             </li>
                         ))}
                     </ul>
                     <div style={{ marginTop: 20 }}>
                         <h5>📈 Biểu đồ Túc Số Theo Ngày</h5>
-                        <Bar data={chartData} options={chartOptions} />
+                        <Bar data={chartData} options={chartOpts} />
                     </div>
                 </div>
             )}
