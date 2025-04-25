@@ -2,17 +2,6 @@
 import { format } from 'date-fns';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
-import { Bar } from 'react-chartjs-2';
-import {
-  Chart as ChartJS,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  Legend,
-} from 'chart.js';
-
-ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 const API_URL = 'https://script.google.com/macros/s/AKfycbwzWNuKLVrIAtzoYSKlOOz1HL1BrY069qAVutulNCWuUbJmqKsZKmstysHx2_h_fweSXA/exec';
 
@@ -20,239 +9,194 @@ function App() {
   const [id, setId] = useState('');
   const [name, setName] = useState('');
   const [dharmaName, setDharmaName] = useState('');
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [practice, setPractice] = useState('');
   const [practiceOptions, setPracticeOptions] = useState([]);
-  const [entries, setEntries] = useState([{ practice: '', count: 0 }]);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [entries, setEntries] = useState([{ practice:'', count:'' }]);
   const [totals, setTotals] = useState({});
   const [streak, setStreak] = useState(0);
   const [dailyData, setDailyData] = useState({});
   const [loading, setLoading] = useState(false);
-  const [isInitialEntry, setIsInitialEntry] = useState(false);
 
-
+  // Load Pháp Tu và Profile khi nhập ID
   useEffect(() => {
-    fetch(API_URL)
-      .then(res => res.json())
-      .then(data => setPracticeOptions(data))
-      .catch(err => console.error('Không lấy được danh sách pháp tu', err));
+    fetch(API_URL).then(r=>r.json()).then(setPracticeOptions);
   }, []);
 
   useEffect(() => {
-    const profile = JSON.parse(localStorage.getItem(id));
-    if (profile) {
-      setName(profile.name);
-      setDharmaName(profile.dharmaName);
-      fetchSummary(id);
-    } else {
-      setName('');
-      setDharmaName('');
-      setTotals({});
-      setDailyData({});
-      setStreak(0);
-    }
+    if (!id) return;
+    // lấy profile
+    fetch(`${API_URL}?action=profile&id=${encodeURIComponent(id)}`)
+      .then(r=>r.json())
+      .then(p=>{
+        if (p) {
+          setName(p.name);
+          setDharmaName(p.dharmaName);
+          setPractice(p.practice);
+        } else {
+          setName(''); setDharmaName(''); setPractice('');
+          setTotals({}); setDailyData({}); setStreak(0);
+        }
+      });
+    // lấy summary luôn, dù profile mới hay có sẵn
+    fetch(`${API_URL}?action=summary&id=${encodeURIComponent(id)}`)
+      .then(r=>r.json())
+      .then(({ summary, daily, streak }) => {
+        setTotals(summary);
+        setDailyData(daily);
+        setStreak(streak);
+      });
   }, [id]);
 
-  const saveProfile = () => {
-    if (!id || !name || !dharmaName) {
-      alert('Vui lòng nhập đầy đủ ID, Tên và Pháp Danh.');
-      return;
+  const saveProfile = async () => {
+    if (!id||!name||!dharmaName||!practice) {
+      return alert('Nhập đủ ID, Tên, Pháp danh, Pháp tu');
     }
-    localStorage.setItem(id, JSON.stringify({ name, dharmaName }));
-    alert('Đã lưu thông tin cá nhân.');
+    const params = new URLSearchParams({
+      action: 'saveProfile',
+      id, name, dharmaName, practice
+    });
+    const res = await fetch(API_URL, {
+      method: 'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: params.toString()
+    });
+    const text = await res.text();
+    if (text==='ProfileSaved') alert('Đã lưu profile');
   };
 
-  const handleChangeEntry = (index, field, value) => {
-    const updated = [...entries];
-    updated[index][field] = field === 'count' ? Number(value) : value;
-    setEntries(updated);
+  // handlers
+  const handleChangeEntry = (i, field, v) => {
+    const u=[...entries];
+    u[i][field] = v;
+    setEntries(u);
   };
-
-  const addEntry = () => {
-    setEntries([...entries, { practice: '', count: 0 }]);
-  };
-
-  const removeEntry = (index) => {
-    if (entries.length === 1) {
-      alert("Bạn phải có ít nhất 1 dòng.");
-      return;
+  const addEntry    = ()=>setEntries([...entries,{practice:'',count:''}]);
+  const removeEntry = i=>{
+    if(entries.length>1){
+      const u=[...entries]; u.splice(i,1); setEntries(u);
     }
-    const updated = [...entries];
-    updated.splice(index, 1);
-    setEntries(updated);
+  };
+  const decrementCount = i=>{
+    const u=[...entries];
+    const v=parseInt(u[i].count,10)||0;
+    u[i].count = v>0? v-1 : 0;
+    setEntries(u);
+  };
+  const incrementCount = i=>{
+    const u=[...entries];
+    const v=parseInt(u[i].count,10)||0;
+    u[i].count = v+1;
+    setEntries(u);
   };
 
   const handleSubmit = async () => {
-    const validEntries = entries.filter(e => e.practice && e.count > 0);
-    if (!id || validEntries.length === 0) {
-      alert('Vui lòng nhập ID và ít nhất một dòng hợp lệ.');
-      return;
-    }
+    if (!id) return alert('Nhập ID trước');
+    // lọc entries
+    const valid = entries
+      .map(e=>({...e, countNum: parseInt(e.count,10)||0}))
+      .filter(e=>e.practice && e.countNum>0);
+    if (!valid.length) return alert('Nhập ít nhất 1 dòng hợp lệ');
 
     setLoading(true);
-    const dateStr = format(selectedDate, 'yyyy-MM-dd');
+    const dateStr = format(selectedDate,'yyyy-MM-dd');
 
-    for (const entry of validEntries) {
-      const formData = new URLSearchParams();
-      formData.append('id', id);
-      formData.append('name', name);
-      formData.append('dharmaName', dharmaName);
-      formData.append('practice', entry.practice);
-      formData.append('date', dateStr);
-      formData.append('count', entry.count.toString());
-      formData.append('note', isInitialEntry ? 'tổng' : '');
-
-
-      try {
-          await fetch('/api/proxy', {
-              method: 'POST',
-              headers: {
-                  'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                  id,
-                  name,
-                  dharmaName,
-                  practice: entry.practice,
-                  date: dateStr,
-                  count: entry.count
-              })
-          });
-
-      } catch (err) {
-        console.error('Lỗi gửi dữ liệu:', err);
-        alert('Không thể gửi dữ liệu. Vui lòng thử lại.');
-        setLoading(false);
-        return;
-      }
+    for(const e of valid){
+      const params = new URLSearchParams({
+        id, name, dharmaName,
+        practice: e.practice,
+        date: dateStr,
+        count: e.countNum.toString()
+      });
+      await fetch(API_URL, {
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body: params.toString()
+      });
     }
 
-    alert('Đã ghi nhận thành công!');
-    await fetchSummary(id);
-      setEntries([{ practice: '', count: 0 }]);
-      setIsInitialEntry(false);
+    alert('Ghi thành công!');
+    // refresh summary
+    const resp = await fetch(`${API_URL}?action=summary&id=${encodeURIComponent(id)}`);
+    const { summary, daily, streak } = await resp.json();
+    setTotals(summary);
+    setDailyData(daily);
+    setStreak(streak);
+    setEntries([{practice:'',count:''}]);
     setLoading(false);
   };
 
-  const fetchSummary = async (userId) => {
-    try {
-      const response = await fetch(`${API_URL}?action=summary&id=${encodeURIComponent(userId)}`);
-      const result = await response.json();
-      const { summary = {}, daily = {}, streak = 0 } = result;
-      setTotals(summary);
-      setDailyData(daily);
-      setStreak(streak);
-    } catch (err) {
-      console.error('Không thể lấy tổng dữ liệu:', err);
-    }
-  };
-
   const sortedDates = Object.keys(dailyData).sort();
-  const chartData = {
-    labels: sortedDates,
-    datasets: [
-      {
-        label: 'Túc Số',
-        data: sortedDates.map(date => dailyData[date]),
-        backgroundColor: '#4B9CD3'
-      }
-    ]
-  };
+  return (
+    <div style={{maxWidth:600,margin:'auto',padding:20,fontFamily:'sans-serif'}}>
+      <h2>🧘 Túc Số Tracker</h2>
 
-  const chartOptions = {
-    responsive: true,
-    plugins: {
-      legend: { display: false }
-    }
-  };
-    return (
-        <div style={styles.container}>
-            <h2>🧘 Túc Số Tracker</h2>
+      <label>ID:</label>
+      <input value={id} onChange={e=>setId(e.target.value)} /><br/>
+      <label>Tên:</label>
+      <input value={name} onChange={e=>setName(e.target.value)} /><br/>
+      <label>Pháp Danh:</label>
+      <input value={dharmaName} onChange={e=>setDharmaName(e.target.value)} /><br/>
+      <label>Pháp Tu:</label>
+      <select value={practice} onChange={e=>setPractice(e.target.value)}>
+        <option value="">-- Chọn pháp tu --</option>
+        {practiceOptions.map((p,i)=><option key={i} value={p}>{p}</option>)}
+      </select>
+      <button onClick={saveProfile}>💾 Lưu profile</button>
 
-            <label>ID:</label>
-            <input value={id} onChange={e => setId(e.target.value)} /><br />
+      <hr/>
 
-            <label>Tên:</label>
-            <input value={name} onChange={e => setName(e.target.value)} /><br />
+      <label>Chọn ngày:</label>
+      <DatePicker selected={selectedDate} onChange={d=>setSelectedDate(d)} dateFormat="yyyy-MM-dd" />
+      <h3>📋 Nhập Túc Số</h3>
 
-            <label>Pháp Danh:</label>
-            <input value={dharmaName} onChange={e => setDharmaName(e.target.value)} /><br />
-
-            <button onClick={saveProfile}>💾 Lưu Thông Tin</button>
-
-            <hr />
-
-            <label>Chọn Ngày:</label>
-            <DatePicker selected={selectedDate} onChange={(date) => setSelectedDate(date)} dateFormat="yyyy-MM-dd" /><br />
-
-            <h3>📋 Nhập Túc Số Theo Pháp Tu</h3>
-            {entries.map((entry, index) => (
-                <div key={index} style={{ marginBottom: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <select
-                        value={entry.practice}
-                        onChange={(e) => handleChangeEntry(index, 'practice', e.target.value)}
-                    >
-                        <option value="">-- Chọn Pháp Tu --</option>
-                        {practiceOptions.map((p, i) => (
-                            <option key={i} value={p}>{p}</option>
-                        ))}
-                    </select>
-                    <input
-                        type="number"
-                        min={0}
-                        value={entry.count}
-                        onChange={(e) => handleChangeEntry(index, 'count', e.target.value)}
-                        style={{ width: 80 }}
-                    />
-                    <button onClick={() => removeEntry(index)} style={{ color: 'red' }}>❌</button>
-                </div>
-            ))}
-            <button onClick={addEntry}>➕ Thêm dòng</button>
-            <div style={{ marginTop: 10 }}>
-                <label>
-                    <input
-                        type="checkbox"
-                        checked={isInitialEntry}
-                        onChange={(e) => setIsInitialEntry(e.target.checked)}
-                    />
-                    Đây là số tích lũy từ trước (chỉ nhập 1 lần)
-                </label>
-            </div>
-
-
-            <hr />
-            <button onClick={handleSubmit}>✅ Gửi Dữ Liệu</button>
-
-            {loading && <p>⏳ Đang xử lý dữ liệu...</p>}
-
-            {Object.keys(totals).length > 0 && (
-                <>
-                    <h4>📊 Tổng Túc Số Tính Đến Hôm Nay – {dharmaName}</h4>
-                    {streak > 0 && (
-                        <p>🎉 Bạn đã thực hành <strong>{streak}</strong> ngày liên tục!</p>
-                    )}
-                    <ul>
-                        {Object.entries(totals).map(([practice, count]) => (
-                            <li key={practice}>{practice}: {Number(count).toLocaleString('vi-VN')}</li>
-                        ))}
-                    </ul>
-
-                    <div style={{ marginTop: 20 }}>
-                        <h5>📈 Biểu đồ Túc Số Theo Ngày</h5>
-                        <Bar data={chartData} options={chartOptions} />
-                    </div>
-                </>
+      {entries.map((entry,index)=>(
+        <div key={index} style={{display:'flex',alignItems:'center',gap:10,marginBottom:8}}>
+          <select
+            value={entry.practice}
+            onChange={e=>handleChangeEntry(index,'practice',e.target.value)}
+          >
+            <option value="">--Pháp Tu--</option>
+            {practiceOptions.map((p,i)=>
+              <option key={i} value={p}>{p}</option>
             )}
-        </div>
-    );
-}
+          </select>
 
-const styles = {
-    container: {
-        maxWidth: 600,
-        margin: '0 auto',
-        padding: 20,
-        fontFamily: 'sans-serif',
-    },
-};
+          <button onClick={()=>decrementCount(index)} style={{width:30}}>–</button>
+          <input
+            type="text"
+            value={entry.count}
+            readOnly
+            placeholder="Nhập số"
+            style={{width:50,textAlign:'center'}}
+          />
+          <button onClick={()=>incrementCount(index)} style={{width:30}}>+</button>
+          <button onClick={()=>removeEntry(index)} style={{color:'red'}}>❌</button>
+        </div>
+      ))}
+      <button onClick={addEntry}>➕ Thêm dòng</button>
+
+      <hr/>
+      <button onClick={handleSubmit}>✅ Gửi Dữ Liệu</button>
+      {loading && <p>⏳ Đang xử lý...</p>}
+
+      {Object.keys(totals).length>0 && (
+        <>
+          <h4>📊 Tổng Túc Số Tính Đến Hôm Nay</h4>
+          {streak>0 && <p>🎉 Bạn đã {streak} ngày liên tục!</p>}
+          <ul>
+            {Object.entries(totals).map(([k,v])=>
+              <li key={k}>{k}: {v.toLocaleString('vi-VN')}</li>
+            )}
+          </ul>
+          <div>
+            <h5>📈 Biểu đồ (chưa tích hợp code chart)</h5>
+            {/* Nếu muốn chart, cài thêm chart.js và render chartData */}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 export default App;
