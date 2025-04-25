@@ -209,7 +209,20 @@ function App() {
                         onChange={ev => handleChangeEntry(i, 'count', ev.target.value)}
                         style={{ width: 60, textAlign: 'center' }}
                     />
-                    <button onClick={() => inc(i)} style={{ width: 30 }}>+</button>
+                    <button
+                        onClick={() => inc(i)}
+                        style={{
+                            backgroundColor: 'red',
+                            color: 'white',
+                            padding: '6px 12px',
+                            fontSize: '14px',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer'
+                        }}
+                    >
+                        Đếm
+                    </button>
                     <button onClick={() => removeEntry(i)} style={{ color: 'red' }}>❌</button>
                 </div>
             ))}
@@ -234,7 +247,7 @@ function App() {
             {id && (
                 <div style={{ marginTop: 20 }}>
                     <h4>📊 Túc Số Hôm Nay / Tổng Tích Lũy – {dharmaName}</h4>
-                    {streak > 0 && <p>🎉 Bạn đã thực hành <strong>{streak}</strong> ngày liên tục!</p>}
+                    {streak > 0 && <p>🎉 Tôi đã thực hành <strong>{streak}</strong> ngày liên tục!</p>}
                     <ul>
                         {Object.entries(totals).map(([practice, cum]) => (
                             <li key={practice}>
