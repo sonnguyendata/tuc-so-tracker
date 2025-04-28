@@ -242,7 +242,14 @@ function App() {
 
             <hr />
 
-            <button onClick={handleSubmit} disabled={loading}>✅ Gửi Dữ Liệu</button>
+            <button
+                onClick={handleSubmit}
+                disabled={loading}
+                style={{
+                    padding: '6px 12px',
+                    fontSize: '14px'
+                }}
+            >✅ Gửi Dữ Liệu</button>
             {loading && <p>⏳ Đang xử lý...</p>}
 
             {id && (
