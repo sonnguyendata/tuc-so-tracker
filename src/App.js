@@ -185,6 +185,12 @@ function App() {
             });
         }
 
+        // save today's entries locally for easy copy later
+        localStorage.setItem(
+            `${id}-entries-${dateStr}`,
+            JSON.stringify(valid.map((e) => ({ practice: e.practice, count: e.countNum })))
+        );
+
         alert('Ghi thành công!');
         setEntries([{ practice: '', count: '' }]);
         setIsInitialEntry(false);
@@ -211,6 +217,33 @@ function App() {
         ],
     };
     const chartOpts = { responsive: true, plugins: { legend: { display: false } } };
+
+    // ─── Copy practices from previous day ─────────────────
+    const copyLastEntries = () => {
+        if (!id) {
+            alert('Nhập ID trước');
+            return;
+        }
+        let date = subDays(selectedDate, 1);
+        for (let i = 0; i < 30; i++) {
+            const key = `${id}-entries-${format(date, 'yyyy-MM-dd')}`;
+            const saved = localStorage.getItem(key);
+            if (saved) {
+                try {
+                    const arr = JSON.parse(saved);
+                    if (Array.isArray(arr) && arr.length) {
+                        setEntries(
+                            arr.map((e) => ({ practice: e.practice, count: String(e.count) }))
+                        );
+                        alert(`Đã copy pháp tu ngày ${format(date, 'yyyy-MM-dd')}.`);
+                        return;
+                    }
+                } catch {}
+            }
+            date = subDays(date, 1);
+        }
+        alert('Không tìm thấy dữ liệu trước đó để copy.');
+    };
 
     // ─── Copy Kết Quả to Clipboard ────────────────────────
     const copyResult = () => {
@@ -294,6 +327,9 @@ function App() {
                     onChange={(d) => setSelectedDate(d)}
                     dateFormat="yyyy-MM-dd"
                 />
+                <button onClick={copyLastEntries} style={{ marginLeft: 8 }}>
+                    📄 Copy Pháp Tu Trước
+                </button>
                 <br />
 
                 <h3>📋 Nhập Túc Số Theo Pháp Tu</h3>
