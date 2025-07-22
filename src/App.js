@@ -328,7 +328,7 @@ function App() {
                     dateFormat="yyyy-MM-dd"
                 />
                 <button onClick={copyLastEntries} style={{ marginLeft: 8 }}>
-                    📄 Copy Pháp Tu Trước
+                    📄 Copy Thực hành ngày hôm trước
                 </button>
                 <br />
 
