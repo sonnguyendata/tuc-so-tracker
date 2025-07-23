@@ -319,31 +319,31 @@ function App() {
 
                 <hr />
 
-                <label>Chọn Ngày:</label>
-                <DatePicker
-                    selected={selectedDate}
-                    onChange={(d) => setSelectedDate(d)}
-                    dateFormat="yyyy-MM-dd"
-                />
-                <br />
+               {/* ─── Date + Copy Yesterday in one row ─────────────────── */}
+<div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+  <label style={{ marginRight: 4 }}>Chọn Ngày:</label>
+  <DatePicker
+    selected={selectedDate}
+    onChange={(d) => setSelectedDate(d)}
+    dateFormat="yyyy-MM-dd"
+  />
+  <button
+    onClick={copyYesterday}
+    style={{
+      marginLeft: 8,
+      padding: '6px 12px',
+      backgroundColor: '#28a745',
+      color: 'white',
+      border: 'none',
+      borderRadius: 4,
+      cursor: 'pointer',
+      fontSize: 14
+    }}
+  >
+    📋 Copy Phần thực hành hôm trước
+  </button>
+</div>
 
-                    {/* Copy yesterday’s entries based on the picked date */}
-<button
-  onClick={copyYesterday}
-  style={{
-    marginLeft: 8,
-    padding: '4px 10px',
-    backgroundColor: '#28a745',
-    color: 'white',
-    border: 'none',
-    borderRadius: 4,
-    cursor: 'pointer',
-    fontSize: 14
-  }}
->
-  📋 Copy Phần thực hành hôm trước
-</button>
-<br />
 
 
                 <h3>📋 Nhập Túc Số Theo Pháp Tu</h3>
