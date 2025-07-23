@@ -257,6 +257,37 @@ function App() {
                 alert('Không thể copy. Hãy thử lại.');
             });
     };
+      // ─── Copy yesterday’s entries into the grid ─────────────
+  const copyYesterday = async () => {
+    if (!id) {
+      alert('Nhập ID trước');
+      return;
+    }
+    // compute yesterday relative to selectedDate
+    const yDate = subDays(selectedDate, 1);
+    const yStr  = format(yDate, 'yyyy-MM-dd');
+
+    try {
+      const url = `${PROXY}?action=summary&id=${encodeURIComponent(id)}&date=${yStr}`;
+      const { todaySummary = {} } = await fetch(url).then(r => r.json());
+      
+      // map into your entries format
+      const newEntries = Object.entries(todaySummary).map(([practice, count]) => ({
+        practice,
+        count: String(count)
+      }));
+
+      if (newEntries.length === 0) {
+        alert(`Không có dữ liệu của ${yStr}`);
+      } else {
+        setEntries(newEntries);
+        alert(`Đã copy dữ liệu của ${yStr}`);
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Copy ngày hôm trước thất bại');
+    }
+  };
 
     // ─── Render ───────────────────────────────────────────
     return (
@@ -295,6 +326,25 @@ function App() {
                     dateFormat="yyyy-MM-dd"
                 />
                 <br />
+
+                    {/* Copy yesterday’s entries based on the picked date */}
+<button
+  onClick={copyYesterday}
+  style={{
+    marginLeft: 8,
+    padding: '4px 10px',
+    backgroundColor: '#28a745',
+    color: 'white',
+    border: 'none',
+    borderRadius: 4,
+    cursor: 'pointer',
+    fontSize: 14
+  }}
+>
+  📋 Copy Phần thực hành hôm trước
+</button>
+<br />
+
 
                 <h3>📋 Nhập Túc Số Theo Pháp Tu</h3>
                 {entries.map((e, i) => (
