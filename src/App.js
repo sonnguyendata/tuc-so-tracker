@@ -258,36 +258,35 @@ function App() {
             });
     };
       // ─── Copy yesterday’s entries into the grid ─────────────
-  const copyYesterday = async () => {
+    const copyYesterday = async () => {
     if (!id) {
       alert('Nhập ID trước');
       return;
     }
-    // compute yesterday relative to selectedDate
     const yDate = subDays(selectedDate, 1);
     const yStr  = format(yDate, 'yyyy-MM-dd');
-
     try {
-      const url = `${PROXY}?action=summary&id=${encodeURIComponent(id)}&date=${yStr}`;
-      const { todaySummary = {} } = await fetch(url).then(r => r.json());
-      
-      // map into your entries format
-      const newEntries = Object.entries(todaySummary).map(([practice, count]) => ({
+      // call the new detail endpoint
+      const url = `${PROXY}?action=detail&id=${encodeURIComponent(id)}&date=${yStr}`;
+      const detail = await fetch(url).then(r => r.json());
+
+      const newEntries = Object.entries(detail).map(([practice, count]) => ({
         practice,
         count: String(count)
       }));
 
-      if (newEntries.length === 0) {
-        alert(`Không có dữ liệu của ${yStr}`);
+      if (!newEntries.length) {
+        alert(`Không có dữ liệu ngày ${yStr}`);
       } else {
         setEntries(newEntries);
         alert(`Đã copy dữ liệu của ${yStr}`);
       }
     } catch (e) {
       console.error(e);
-      alert('Copy ngày hôm trước thất bại');
+      alert('Copy ngày hôm qua thất bại');
     }
   };
+
 
     // ─── Render ───────────────────────────────────────────
     return (
@@ -321,7 +320,7 @@ function App() {
 
                {/* ─── Date + Copy Yesterday in one row ─────────────────── */}
 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-  <label style={{ marginRight: 4 }}>Chọn Ngày:</label>
+  <label>Chọn Ngày:</label>
   <DatePicker
     selected={selectedDate}
     onChange={(d) => setSelectedDate(d)}
@@ -330,7 +329,6 @@ function App() {
   <button
     onClick={copyYesterday}
     style={{
-      marginLeft: 8,
       padding: '6px 12px',
       backgroundColor: '#28a745',
       color: 'white',
