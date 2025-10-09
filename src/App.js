@@ -406,7 +406,7 @@ function App() {
 
                 <hr />
 
-                {/* “Gửi dữ liệu” and “Copy Kết Quả” side by side */}
+                {/* “Gửi dữ liệu” button */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                     <button
                         onClick={handleSubmit}
@@ -415,26 +415,27 @@ function App() {
                     >
                         ✅ Gửi Dữ Liệu
                     </button>
-                    <button
-                        onClick={copyResult}
-                        style={{
-                            padding: '6px 12px',
-                            fontSize: 14,
-                            backgroundColor: '#007bff',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 4,
-                            cursor: 'pointer',
-                        }}
-                    >
-                        📋 Copy Kết Quả
-                    </button>
                 </div>
                 {loading && <p>⏳ Đang xử lý...</p>}
 
                 {id && (
                     <div style={{ marginTop: 20 }}>
                         <h4>📊 Túc Số Hôm Nay / Tổng Tích Lũy – {dharmaName}</h4>
+                        <button
+                            onClick={copyResult}
+                            style={{
+                                padding: '6px 12px',
+                                fontSize: 14,
+                                backgroundColor: '#007bff',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: 4,
+                                cursor: 'pointer',
+                                marginTop: 8,
+                            }}
+                        >
+                            📋 Copy Kết Quả
+                        </button>
                         {streak > 0 && (
                             <p>
                                 🎉 Đã thực hành <strong>{streak}</strong> ngày liên tục!
