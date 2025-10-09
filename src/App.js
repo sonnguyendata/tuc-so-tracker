@@ -420,22 +420,33 @@ function App() {
 
                 {id && (
                     <div style={{ marginTop: 20 }}>
-                        <h4>📊 Túc Số Hôm Nay / Tổng Tích Lũy – {dharmaName}</h4>
-                        <button
-                            onClick={copyResult}
+                        <div
                             style={{
-                                padding: '6px 12px',
-                                fontSize: 14,
-                                backgroundColor: '#007bff',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: 4,
-                                cursor: 'pointer',
-                                marginTop: 8,
+                                display: 'flex',
+                                flexWrap: 'wrap',
+                                alignItems: 'center',
+                                gap: 12,
+                                marginBottom: 12,
                             }}
                         >
-                            📋 Copy Kết Quả
-                        </button>
+                            <h4 style={{ margin: 0 }}>
+                                📊 Túc Số Hôm Nay / Tổng Tích Lũy – {dharmaName}
+                            </h4>
+                            <button
+                                onClick={copyResult}
+                                style={{
+                                    padding: '6px 12px',
+                                    fontSize: 14,
+                                    backgroundColor: '#007bff',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: 4,
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                📋 Copy Kết Quả
+                            </button>
+                        </div>
                         {streak > 0 && (
                             <p>
                                 🎉 Đã thực hành <strong>{streak}</strong> ngày liên tục!
