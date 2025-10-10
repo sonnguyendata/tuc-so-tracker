@@ -27,6 +27,7 @@ function App() {
     const [entries, setEntries] = useState([{ practice: '', count: '' }]);
     const [isInitialEntry, setIsInitialEntry] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [dataLoading, setDataLoading] = useState(false);
 
     const [totals, setTotals] = useState({});
     const [todaySummary, setTodaySummary] = useState({});
@@ -51,54 +52,64 @@ function App() {
             alert('Vui lòng nhập ID trước.');
             return;
         }
+        setDataLoading(true);
         const dateStr = format(selectedDate, 'yyyy-MM-dd');
+        console.log('Loading data for ID:', id, 'Date:', dateStr);
 
         // ─ fetch profile
         try {
-            const p = await fetch(`${PROXY}?action=profile&id=${encodeURIComponent(id)}`).then((r) =>
-                r.json()
-            );
-            if (p) {
-                setName(p.name);
-                setDharmaName(p.dharmaName);
+            const response = await fetch(`${PROXY}?action=profile&id=${encodeURIComponent(id)}`);
+            const p = await response.json();
+            console.log('Profile response:', p);
+            
+            if (p && (p.name || p.dharmaName)) {
+                setName(p.name || '');
+                setDharmaName(p.dharmaName || '');
                 localStorage.setItem(id, JSON.stringify(p));
             } else {
                 const saved = localStorage.getItem(id);
                 if (saved) {
                     const o = JSON.parse(saved);
-                    setName(o.name);
-                    setDharmaName(o.dharmaName);
+                    setName(o.name || '');
+                    setDharmaName(o.dharmaName || '');
                 } else {
                     setName('');
                     setDharmaName('');
                 }
             }
-        } catch {
+        } catch (error) {
+            console.error('Profile fetch error:', error);
             const saved = localStorage.getItem(id);
             if (saved) {
                 const o = JSON.parse(saved);
-                setName(o.name);
-                setDharmaName(o.dharmaName);
+                setName(o.name || '');
+                setDharmaName(o.dharmaName || '');
             }
         }
 
         // ─ fetch summary up to that date
         try {
             const url = `${PROXY}?action=summary&id=${encodeURIComponent(id)}&date=${dateStr}`;
-            const { summary = {}, todaySummary = {}, daily = {}, streak = 0 } = await fetch(url).then(
-                (r) => r.json()
-            );
+            console.log('Fetching summary from:', url);
+            
+            const response = await fetch(url);
+            const data = await response.json();
+            console.log('Summary response:', data);
+            
+            const { summary = {}, todaySummary = {}, daily = {}, streak = 0 } = data;
 
             setTotals(summary);
             setTodaySummary(todaySummary);
             setDailyData(daily);
             setStreak(streak);
+            
+            console.log('Data set successfully:', { summary, todaySummary, daily, streak });
         } catch (e) {
             console.error('Failed to load summary:', e);
-            setTotals({});
-            setTodaySummary({});
-            setDailyData({});
-            setStreak(0);
+            // Don't clear existing data on error - keep what we have
+            console.log('Keeping existing data due to error');
+        } finally {
+            setDataLoading(false);
         }
     };
 
@@ -303,8 +314,8 @@ function App() {
                     onChange={(e) => setId(e.target.value)}
                     onKeyDown={(e) => e.key === 'Enter' && loadData()}
                 />
-                <button onClick={loadData} style={{ marginLeft: 8 }}>
-                    🔍 Tải Dữ Liệu
+                <button onClick={loadData} disabled={dataLoading} style={{ marginLeft: 8 }}>
+                    {dataLoading ? '⏳ Đang tải...' : '🔍 Tải Dữ Liệu'}
                 </button>
                 <br />
 
