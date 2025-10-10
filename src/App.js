@@ -406,28 +406,14 @@ function App() {
 
                 <hr />
 
-                {/* “Gửi dữ liệu” and “Copy Kết Quả” side by side */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                {/* "Gửi dữ liệu" button */}
+                <div>
                     <button
                         onClick={handleSubmit}
                         disabled={loading}
                         style={{ padding: '6px 12px', fontSize: 14 }}
                     >
                         ✅ Gửi Dữ Liệu
-                    </button>
-                    <button
-                        onClick={copyResult}
-                        style={{
-                            padding: '6px 12px',
-                            fontSize: 14,
-                            backgroundColor: '#007bff',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 4,
-                            cursor: 'pointer',
-                        }}
-                    >
-                        📋 Copy Kết Quả
                     </button>
                 </div>
                 {loading && <p>⏳ Đang xử lý...</p>}
@@ -448,6 +434,23 @@ function App() {
                                 </li>
                             ))}
                         </ul>
+
+                        {/* Copy Kết Quả button */}
+                        <button
+                            onClick={copyResult}
+                            style={{
+                                padding: '6px 12px',
+                                fontSize: 14,
+                                backgroundColor: '#007bff',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: 4,
+                                cursor: 'pointer',
+                                marginTop: 10
+                            }}
+                        >
+                            📋 Copy Kết Quả
+                        </button>
 
                         <div style={{ marginTop: 20 }}>
                             <h5>📈 Biểu đồ Túc Số 21 Ngày</h5>
