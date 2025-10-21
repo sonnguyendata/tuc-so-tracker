@@ -32,6 +32,7 @@ function App() {
     const [totals, setTotals] = useState({});
     const [todaySummary, setTodaySummary] = useState({});
     const [dailyData, setDailyData] = useState({});
+    const [dailyDataByPractice, setDailyDataByPractice] = useState({});
     const [streak, setStreak] = useState(0);
 
     // ─── Speed Insights Script ────────────────────────────
@@ -104,6 +105,33 @@ function App() {
             setStreak(streak);
             
             console.log('Data set successfully:', { summary, todaySummary, daily, streak });
+
+            // ─ fetch detailed data for 21 days for stacked chart
+            const start = subDays(selectedDate, 20);
+            const days = Array.from({ length: 21 }, (_, i) =>
+                format(addDays(start, i), 'yyyy-MM-dd')
+            );
+            
+            const detailedData = {};
+            try {
+                // Fetch detail for each day
+                await Promise.all(days.map(async (day) => {
+                    try {
+                        const detailUrl = `${PROXY}?action=detail&id=${encodeURIComponent(id)}&date=${day}`;
+                        const detailResponse = await fetch(detailUrl);
+                        const dayData = await detailResponse.json();
+                        detailedData[day] = dayData || {};
+                    } catch (error) {
+                        console.error(`Failed to fetch detail for ${day}:`, error);
+                        detailedData[day] = {};
+                    }
+                }));
+                
+                setDailyDataByPractice(detailedData);
+                console.log('Detailed data loaded:', detailedData);
+            } catch (e) {
+                console.error('Failed to load detailed data:', e);
+            }
         } catch (e) {
             console.error('Failed to load summary:', e);
             // Don't clear existing data on error - keep what we have
@@ -211,17 +239,63 @@ function App() {
         format(addDays(start, i), 'yyyy-MM-dd')
     );
 
-    const chartData = {
-        labels: days,
-        datasets: [
-            {
-                label: 'Túc Số',
-                data: days.map((d) => dailyData[d] || 0),
-                backgroundColor: '#4B9CD3',
-            },
-        ],
+    // Generate colors for different practices
+    const generateColor = (index) => {
+        const colors = [
+            '#4B9CD3', '#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7', 
+            '#DDA0DD', '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E9', '#F8C471'
+        ];
+        return colors[index % colors.length];
     };
-    const chartOpts = { responsive: true, plugins: { legend: { display: false } } };
+
+    // Build stacked chart data
+    const buildChartData = () => {
+        // Get all unique practices from the detailed data
+        const allPractices = new Set();
+        Object.values(dailyDataByPractice).forEach(dayData => {
+            Object.keys(dayData).forEach(practice => allPractices.add(practice));
+        });
+        
+        // Also include practices from practiceOptions for consistency
+        practiceOptions.forEach(practice => allPractices.add(practice));
+        
+        const practiceList = Array.from(allPractices);
+        
+        const datasets = practiceList.map((practice, index) => ({
+            label: practice,
+            data: days.map(day => {
+                const dayData = dailyDataByPractice[day] || {};
+                return parseInt(dayData[practice] || 0, 10);
+            }),
+            backgroundColor: generateColor(index),
+            stack: 'stack1', // This enables stacking
+        }));
+
+        return {
+            labels: days,
+            datasets: datasets,
+        };
+    };
+
+    const chartData = buildChartData();
+    const chartOpts = { 
+        responsive: true, 
+        plugins: { 
+            legend: { 
+                display: true,
+                position: 'top'
+            } 
+        },
+        scales: {
+            x: {
+                stacked: true,
+            },
+            y: {
+                stacked: true,
+                beginAtZero: true
+            }
+        }
+    };
 
     // ─── Copy Kết Quả to Clipboard ────────────────────────
     const copyResult = () => {
