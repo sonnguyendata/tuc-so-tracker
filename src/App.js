@@ -141,10 +141,7 @@ function App() {
         }
     };
 
-    // ─── 3) Whenever user changes date or ID, reload ───────
-    useEffect(() => {
-        if (id) loadData();
-    }, [id, selectedDate]);
+    // ─── 3) Removed automatic reload - now only loads when user clicks Load button ───────
 
     // ─── Save Profile ─────────────────────────────────────
     const saveProfile = async () => {
@@ -250,14 +247,16 @@ function App() {
 
     // Build stacked chart data
     const buildChartData = () => {
-        // Get all unique practices from the detailed data
+        // Get all unique practices from the detailed data that have actual values
         const allPractices = new Set();
         Object.values(dailyDataByPractice).forEach(dayData => {
-            Object.keys(dayData).forEach(practice => allPractices.add(practice));
+            Object.entries(dayData).forEach(([practice, count]) => {
+                // Only include practices that have non-zero values
+                if (parseInt(count || 0, 10) > 0) {
+                    allPractices.add(practice);
+                }
+            });
         });
-        
-        // Also include practices from practiceOptions for consistency
-        practiceOptions.forEach(practice => allPractices.add(practice));
         
         const practiceList = Array.from(allPractices);
         
@@ -282,7 +281,7 @@ function App() {
         responsive: true, 
         plugins: { 
             legend: { 
-                display: true,
+                display: chartData.datasets.length > 0,
                 position: 'top'
             } 
         },
